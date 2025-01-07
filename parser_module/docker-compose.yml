@@ -1,0 +1,69 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api_service
+    ports:
+      - "5000:5000"
+    environment:
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+      - MONGO_HOST=mongodb_service
+    depends_on:
+      - redis
+      - rabbitmq
+      - mongodb_service
+    networks:
+      - parser_app_network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq_service
+    ports:
+      - "5672:5672"  # Порт для подключения Pika
+      - "15672:15672"  # Веб-интерфейс RabbitMQ
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - "rabbitmq_data:/var/lib/rabbitmq"
+    networks:
+      - parser_app_network
+
+  redis:
+    image: redis:alpine
+    container_name: redis_service
+    ports:
+      - "6379:6379"
+    networks:
+      - parser_app_network
+
+  mongodb_service:
+    image: mongo
+    container_name: mongodb_service
+    ports:
+      - "27017:27017"
+    networks:
+      - parser_app_network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: worker_service
+    command: ["python", "worker.py"]
+    depends_on:
+      - rabbitmq
+      - mongodb_service
+      - redis
+    networks:
+      - parser_app_network
+
+networks:
+  parser_app_network:
+    name: parser_app_network
+    driver: bridge
+
+volumes:
+  rabbitmq_data:  # Том для сохранения данных RabbitMQ
